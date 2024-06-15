@@ -121,14 +121,18 @@
                 doc.text(`Pokemon Business Card`, 20, 20);
                 doc.setFontSize(12);
                 doc.text(`Name: ${data.name.charAt(0).toUpperCase() + data.name.slice(1)}`, 20, 30);
-                doc.text(`Description: ${description}`, 20, 40);
-                doc.text(`Height: ${data.height / 10} m`, 20, 50);
-                doc.text(`Weight: ${data.weight / 10} kg`, 20, 60);
+
+                const descriptionLines = doc.splitTextToSize(`Description: ${description}`, 170);
+                doc.text(descriptionLines, 20, 40);
+
+                const yPos = 40 + descriptionLines.length * 10;
+                doc.text(`Height: ${data.height / 10} m`, 20, yPos + 10);
+                doc.text(`Weight: ${data.weight / 10} kg`, 20, yPos + 20);
 
                 const img = new Image();
                 img.src = data.sprites.front_default;
                 img.onload = function () {
-                    doc.addImage(img, 'PNG', 20, 70, 50, 50);
+                    doc.addImage(img, 'PNG', 20, yPos + 30, 50, 50);
                     doc.save(`${data.name}-business-card.pdf`);
                 };
             } catch (error) {

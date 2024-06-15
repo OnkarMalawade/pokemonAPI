@@ -48,6 +48,10 @@
         #pokemon-info {
             margin-top: 20px;
         }
+        #download-btn {
+            display: none;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -56,12 +60,15 @@
         <input type="text" id="pokemon-name" placeholder="Enter Pokemon Name">
         <button onclick="fetchPokemonInfo()">Get Info</button>
         <div id="pokemon-info"></div>
+        <button id="download-btn" onclick="downloadPDF()">Download Business Card</button>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
     <script>
         function fetchPokemonInfo() {
             const pokemonName = document.getElementById('pokemon-name').value.toLowerCase();
             const url = `https://pokeapi.co/api/v2/pokemon/${pokemonName}`;
+            const speciesUrl = `https://pokeapi.co/api/v2/pokemon-species/${pokemonName}`;
             
             fetch(url)
               .then(response => {
@@ -71,18 +78,62 @@
                 return response.json();
               })
               .then(data => {
+                return fetch(speciesUrl)
+                    .then(response => response.json())
+                    .then(speciesData => ({...data, description: speciesData.flavor_text_entries.find(entry => entry.language.name === "en").flavor_text}));
+              })
+              .then(data => {
                 const pokemonInfoDiv = document.getElementById('pokemon-info');
+                const description = data.description ? data.description.replace(/\n|\f/g, ' ') : "No description available.";
                 pokemonInfoDiv.innerHTML = `
                   <h2>${data.name.charAt(0).toUpperCase() + data.name.slice(1)}</h2>
                   <img src="${data.sprites.front_default}" alt="${data.name}">
-                  <p>Height: ${data.height / 10} m</p>
-                  <p>Weight: ${data.weight / 10} kg</p>
+                  <p><strong>Description:</strong> ${description}</p>
+                  <p><strong>Height:</strong> ${data.height / 10} m</p>
+                  <p><strong>Weight:</strong> ${data.weight / 10} kg</p>
                 `;
+                document.getElementById('download-btn').style.display = 'block';
               })
               .catch(error => {
                 const pokemonInfoDiv = document.getElementById('pokemon-info');
                 pokemonInfoDiv.innerHTML = `<p style="color: red;">${error.message}</p>`;
+                document.getElementById('download-btn').style.display = 'none';
               });
+        }
+
+        async function downloadPDF() {
+            const { jsPDF } = window.jspdf;
+            const pokemonName = document.getElementById('pokemon-name').value.toLowerCase();
+            const url = `https://pokeapi.co/api/v2/pokemon/${pokemonName}`;
+            const speciesUrl = `https://pokeapi.co/api/v2/pokemon-species/${pokemonName}`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Pokemon not found');
+                const data = await response.json();
+                const speciesResponse = await fetch(speciesUrl);
+                const speciesData = await speciesResponse.json();
+                const description = speciesData.flavor_text_entries.find(entry => entry.language.name === "en").flavor_text.replace(/\n|\f/g, ' ');
+
+                const doc = new jsPDF();
+
+                doc.setFontSize(16);
+                doc.text(`Pokemon Business Card`, 20, 20);
+                doc.setFontSize(12);
+                doc.text(`Name: ${data.name.charAt(0).toUpperCase() + data.name.slice(1)}`, 20, 30);
+                doc.text(`Description: ${description}`, 20, 40);
+                doc.text(`Height: ${data.height / 10} m`, 20, 50);
+                doc.text(`Weight: ${data.weight / 10} kg`, 20, 60);
+
+                const img = new Image();
+                img.src = data.sprites.front_default;
+                img.onload = function () {
+                    doc.addImage(img, 'PNG', 20, 70, 50, 50);
+                    doc.save(`${data.name}-business-card.pdf`);
+                };
+            } catch (error) {
+                alert('Failed to generate PDF: ' + error.message);
+            }
         }
     </script>
 </body>
